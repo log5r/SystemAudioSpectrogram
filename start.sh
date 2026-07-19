@@ -8,6 +8,9 @@ CONFIGURATION="${CONFIGURATION:-Release}"
 DESTINATION="platform=macOS,arch=$(uname -m)"
 SHOULD_BUILD=0
 
+echo "Stopping running $SCHEME instances..."
+killall "$SCHEME" 2>/dev/null || true
+
 find_app_path() {
   xcodebuild \
     -project "$PROJECT_PATH" \
