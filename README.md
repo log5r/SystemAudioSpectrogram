@@ -1,5 +1,7 @@
 # System Audio Spectrogram
 
+[English](README.md) | [日本語](README.ja.md)
+
 System Audio Spectrogram is a native macOS app that captures the Mac's system output and renders scrolling stereo spectrograms in real time. The interface is dedicated to frequency analysis and includes independent left/right views plus lightweight level readouts.
 
 ![System Audio Spectrogram showing stereo sample spectrograms](docs/system-audio-spectrogram.png)
