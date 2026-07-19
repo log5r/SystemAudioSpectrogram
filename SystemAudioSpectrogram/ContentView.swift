@@ -27,7 +27,7 @@ struct ContentView: View {
         }
         .padding(28)
         .padding(.top, 18)
-        .frame(minWidth: 820, idealWidth: 1_040, minHeight: 560, idealHeight: 700)
+        .frame(minWidth: 820, idealWidth: 1_040, minHeight: 660, idealHeight: 700)
         .background {
             LinearGradient(
                 colors: backgroundColors,
@@ -79,40 +79,28 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("System Audio Spectrogram")
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+        spectrumControls
+    }
 
-                    Text(monitor.statusText)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+    private var captureButton: some View {
+        Button {
+            guard !monitor.isPreviewing else { return }
 
-                Spacer()
-
-                Button {
-                    guard !monitor.isPreviewing else { return }
-
-                    if monitor.isRunning {
-                        monitor.stop()
-                    } else {
-                        Task { await monitor.start() }
-                    }
-                } label: {
-                    Label(
-                        monitor.isPreviewing ? "Preview" : (monitor.isRunning ? "Stop" : "Start"),
-                        systemImage: monitor.isPreviewing ? "waveform" : (monitor.isRunning ? "stop.fill" : "play.fill")
-                    )
-                }
-                .disabled(monitor.isPreviewing)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+            if monitor.isRunning {
+                monitor.stop()
+            } else {
+                Task { await monitor.start() }
             }
-
-            spectrumControls
+        } label: {
+            Label(
+                monitor.isPreviewing ? "Preview" : (monitor.isRunning ? "Stop" : "Start"),
+                systemImage: monitor.isPreviewing ? "waveform" : (monitor.isRunning ? "stop.fill" : "play.fill")
+            )
         }
+        .disabled(monitor.isPreviewing)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .fixedSize()
     }
 
     private var spectrumControls: some View {
@@ -175,6 +163,8 @@ struct ContentView: View {
                 .frame(width: 270)
 
                 Spacer()
+
+                captureButton
             }
         }
     }

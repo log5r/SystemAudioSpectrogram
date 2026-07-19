@@ -21,9 +21,10 @@ final class SystemAudioSpectrogramUITestsLaunchTests: XCTestCase {
     func testLaunch() throws {
         let app = XCUIApplication()
         app.launchEnvironment["SYSTEM_AUDIO_SPECTROGRAM_PREVIEW"] = "1"
+        app.launchArguments += ["-ApplePersistenceIgnoreState", "YES"]
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["System Audio Spectrogram"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "System Audio Spectrogram"
