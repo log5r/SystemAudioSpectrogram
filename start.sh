@@ -8,21 +8,7 @@ CONFIGURATION="${CONFIGURATION:-Release}"
 DESTINATION="platform=macOS,arch=$(uname -m)"
 SHOULD_BUILD=0
 
-if (($# > 0)); then
-  SHOULD_BUILD=1
-fi
-
-if ((SHOULD_BUILD)); then
-  echo "Building $SCHEME ($CONFIGURATION)..."
-  xcodebuild \
-    -project "$PROJECT_PATH" \
-    -scheme "$SCHEME" \
-    -configuration "$CONFIGURATION" \
-    -destination "$DESTINATION" \
-    build
-fi
-
-APP_PATH="$(
+find_app_path() {
   xcodebuild \
     -project "$PROJECT_PATH" \
     -scheme "$SCHEME" \
@@ -41,10 +27,28 @@ APP_PATH="$(
       }
     }
   '
-)"
+}
+
+APP_PATH="$(find_app_path)"
+
+if (($# > 0)) || [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
+  SHOULD_BUILD=1
+fi
+
+if ((SHOULD_BUILD)); then
+  echo "Building $SCHEME ($CONFIGURATION)..."
+  xcodebuild \
+    -project "$PROJECT_PATH" \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIGURATION" \
+    -destination "$DESTINATION" \
+    build
+
+  APP_PATH="$(find_app_path)"
+fi
 
 if [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
-  echo "error: built app was not found. Run with any argument to build before launching." >&2
+  echo "error: built app was not found after building." >&2
   exit 1
 fi
 
