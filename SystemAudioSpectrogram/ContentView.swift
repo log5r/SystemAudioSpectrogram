@@ -5,6 +5,7 @@
 //  Created by Judau on 2026/06/19.
 //
 
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -12,10 +13,14 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @StateObject private var monitor = SystemAudioSpectrumMonitor()
+    @StateObject private var snapshotter = SpectrogramViewSnapshotter()
     @AppStorage("spectrumMaximumFrequency") private var spectrumMaximumFrequency = SystemAudioSpectrumMonitor.defaultSpectrumMaximumFrequency
     @AppStorage("spectrumScrollSpeed") private var spectrumScrollSpeedRawValue = SpectrumScrollSpeed.normal.rawValue
     @AppStorage("spectrumFrequencyScale") private var spectrumFrequencyScaleRawValue = SpectrumFrequencyScale.linear.rawValue
     @AppStorage("spectrumResolution") private var spectrumResolutionRawValue = SpectrumResolution.high.rawValue
+    @State private var outputDirectory: URL?
+    @State private var exportStatus = "Choose a folder before saving images."
+    @State private var exportFailed = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -38,6 +43,10 @@ struct ContentView: View {
         }
         .task {
             applySpectrumSettings()
+            outputDirectory = SpectrogramOutputDirectoryStore.restore()
+            if let outputDirectory {
+                exportStatus = "PNG images will be saved to \(outputDirectory.lastPathComponent)."
+            }
 #if DEBUG
             if ProcessInfo.processInfo.environment["SYSTEM_AUDIO_SPECTROGRAM_PREVIEW"] == "1" {
                 monitor.loadPreviewSpectrogram()
@@ -82,7 +91,7 @@ struct ContentView: View {
         spectrumControls
     }
 
-    private var captureButton: some View {
+    private var monitoringButton: some View {
         Button {
             guard !monitor.isPreviewing else { return }
 
@@ -164,8 +173,53 @@ struct ContentView: View {
 
                 Spacer()
 
-                captureButton
+                monitoringButton
             }
+
+            imageExportControls
+        }
+    }
+
+    private var imageExportControls: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 12) {
+                Label("Image Output", systemImage: "photo")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.secondary)
+
+                Text(outputDirectory?.path ?? "No output directory selected")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(outputDirectory == nil ? .secondary : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(outputDirectory?.path ?? "Choose a folder for exported PNG images")
+
+                Spacer(minLength: 8)
+
+                Button {
+                    chooseOutputDirectory()
+                } label: {
+                    Label(outputDirectory == nil ? "Choose Folder…" : "Change…", systemImage: "folder")
+                }
+                .fixedSize()
+
+                Button {
+                    saveSpectrogramImage()
+                } label: {
+                    Label("Save Image", systemImage: "camera")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(outputDirectory == nil)
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .help("Save the current spectrogram as a PNG image (Shift-Command-S)")
+                .fixedSize()
+            }
+
+            Text(exportStatus)
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(exportFailed ? Color.red : Color.secondary)
+                .lineLimit(1)
+                .padding(.leading, 30)
         }
     }
 
@@ -178,6 +232,56 @@ struct ContentView: View {
             usesLogarithmicFrequencyScale: currentFrequencyScale == .logarithmic,
             isPaused: !monitor.isRunning
         )
+        .background {
+            SpectrogramSnapshotRegion(snapshotter: snapshotter)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func chooseOutputDirectory() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Spectrogram Image Output Folder"
+        panel.prompt = "Choose"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = outputDirectory
+
+        guard panel.runModal() == .OK, let directory = panel.url else { return }
+
+        do {
+            try SpectrogramOutputDirectoryStore.save(directory)
+            outputDirectory = directory
+            exportFailed = false
+            exportStatus = "PNG images will be saved to \(directory.lastPathComponent)."
+        } catch {
+            exportFailed = true
+            exportStatus = "Could not remember the output folder: \(error.localizedDescription)"
+        }
+    }
+
+    private func saveSpectrogramImage() {
+        guard let outputDirectory else { return }
+
+        let didAccess = outputDirectory.startAccessingSecurityScopedResource()
+        defer {
+            if didAccess {
+                outputDirectory.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            // Both channels and their overlays are captured synchronously in
+            // this button action, before the next display-link frame.
+            let png = try snapshotter.capturePNG()
+            let destination = try SpectrogramImageWriter.writePNG(png, to: outputDirectory)
+            exportFailed = false
+            exportStatus = "Saved \(destination.lastPathComponent)"
+        } catch {
+            exportFailed = true
+            exportStatus = "Could not save image: \(error.localizedDescription)"
+        }
     }
 
     private var currentScrollSpeed: SpectrumScrollSpeed {

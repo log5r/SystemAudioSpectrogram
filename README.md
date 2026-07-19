@@ -15,7 +15,9 @@ System Audio Spectrogram is a native macOS app that captures the Mac's system ou
 - Slow, normal, and fast history speeds
 - Standard, high, and ultra FFT/display resolution presets
 - Start/Stop capture control and compact left/right dB readouts
-- Local-only analysis with no recording, export, or network code
+- One-click PNG snapshots of the current stereo spectrogram
+- A persistent, user-selected output folder for rapid consecutive snapshots
+- Local-only analysis with no audio recording or network code
 
 ## Requirements
 
@@ -55,11 +57,11 @@ The project intentionally does not contain a fixed Apple Developer Team. Select 
 
 macOS asks for permission the first time capture starts. If capture is denied, enable the app in System Settings under Privacy & Security, then stop and start capture again.
 
-The app is sandboxed and has only the audio-input entitlement needed by the Core Audio capture path. It does not request file access.
+The app is sandboxed. In addition to the audio-input entitlement used by the Core Audio capture path, it requests access only to the image output folder explicitly selected by the user.
 
 ## Privacy
 
-Audio is analyzed locally on the Mac. The application does not record, save, or transmit captured audio.
+Audio is analyzed locally on the Mac. The application does not record, save, or transmit captured audio. Only a PNG rendering of the displayed spectrogram is written when the user presses Save Image.
 
 There is no network client, audio-file writer, or captured-sample persistence in the project. Audio frames are reduced to levels and FFT bins in memory and discarded after visualization.
 

@@ -7,9 +7,17 @@ SCHEME="SystemAudioSpectrogram"
 CONFIGURATION="${CONFIGURATION:-Release}"
 DESTINATION="platform=macOS,arch=$(uname -m)"
 SHOULD_BUILD=0
+SHOULD_CLEAN=0
 
 echo "Stopping running $SCHEME instances..."
 killall "$SCHEME" 2>/dev/null || true
+
+for arg in "$@"; do
+  if [[ "$arg" == "rebuild" ]]; then
+    SHOULD_CLEAN=1
+    break
+  fi
+done
 
 find_app_path() {
   xcodebuild \
@@ -39,6 +47,16 @@ if (($# > 0)) || [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
 fi
 
 if ((SHOULD_BUILD)); then
+  if ((SHOULD_CLEAN)); then
+    echo "Cleaning $SCHEME ($CONFIGURATION)..."
+    xcodebuild \
+      -project "$PROJECT_PATH" \
+      -scheme "$SCHEME" \
+      -configuration "$CONFIGURATION" \
+      -destination "$DESTINATION" \
+      clean
+  fi
+
   echo "Building $SCHEME ($CONFIGURATION)..."
   xcodebuild \
     -project "$PROJECT_PATH" \

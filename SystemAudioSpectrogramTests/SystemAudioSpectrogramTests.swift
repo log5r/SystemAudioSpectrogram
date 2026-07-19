@@ -5,6 +5,7 @@
 //  Created by Judau on 2026/06/19.
 //
 
+import AppKit
 import CoreGraphics
 import Foundation
 import Testing
@@ -131,6 +132,60 @@ struct SystemAudioSpectrogramTests {
 
         // One 60 Hz frame elapsed, so the timestamp snaps to the finer grid.
         #expect(abs(snapshot.newestTimestamp - (10 + 1.0 / 60.0)) < 1e-9)
+    }
+
+    @Test func imageWriterUsesCollisionSafeSequentialNames() throws {
+        let fileManager = FileManager.default
+        let directory = fileManager.temporaryDirectory
+            .appendingPathComponent("SystemAudioSpectrogramTests-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: directory) }
+
+        let pngData = Data([0x89, 0x50, 0x4E, 0x47])
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = try SpectrogramImageWriter.writePNG(
+            pngData,
+            to: directory,
+            date: date,
+            fileManager: fileManager
+        )
+        let second = try SpectrogramImageWriter.writePNG(
+            pngData,
+            to: directory,
+            date: date,
+            fileManager: fileManager
+        )
+
+        #expect(first.pathExtension == "png")
+        #expect(second.lastPathComponent == "\(first.deletingPathExtension().lastPathComponent)-2.png")
+        #expect(try Data(contentsOf: first) == pngData)
+        #expect(try Data(contentsOf: second) == pngData)
+    }
+
+    @Test @MainActor func viewSnapshotterProducesPNGForItsRegisteredRegion() throws {
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 160, height: 120),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        let contentView = try #require(window.contentView)
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.black.cgColor
+
+        let region = NSView(frame: CGRect(x: 20, y: 30, width: 80, height: 40))
+        region.wantsLayer = true
+        region.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        contentView.addSubview(region)
+
+        let snapshotter = SpectrogramViewSnapshotter()
+        snapshotter.regionView = region
+        let data = try snapshotter.capturePNG()
+        let bitmap = try #require(NSBitmapImageRep(data: data))
+
+        #expect(bitmap.pixelsWide > 0)
+        #expect(bitmap.pixelsHigh > 0)
+        #expect(abs(Double(bitmap.pixelsWide) / Double(bitmap.pixelsHigh) - 2) < 0.01)
     }
 
     private func redComponent(of image: CGImage, x: Int, y: Int) -> Int {
